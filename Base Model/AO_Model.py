@@ -40,6 +40,7 @@ def buildModel(
     threads: int = 4,
     mip_gap: float = 1e-5,
     time_limit_seconds: Optional[float] = None,
+    seed: int = 42,
 ) -> AO_Model:
 
     # -------------------------------------------------
@@ -71,6 +72,7 @@ def buildModel(
     model = gp.Model("AO_FSRCPSP")
     model.Params.Threads = int(threads)
     model.Params.MIPGap = float(mip_gap)
+    model.Params.Seed = int(seed)
     if time_limit_seconds is not None:
         model.Params.TimeLimit = float(time_limit_seconds)
 
@@ -136,7 +138,7 @@ def buildModel(
             m_val = 0
             for k_idx, k in enumerate(resources):
                 l_resources = int(data.lR[i][k_idx])
-                if l_resources > 0:
+                if l_resources > 0 and k in data.scenarios[pi]:
                     workload = int(data.scenarios[pi][k][i])
                     m_val = max(m_val, int(math.ceil(workload / l_resources)))
             M_prec[(i, pi)] = m_val
@@ -188,6 +190,7 @@ def buildModel(
             gp.quicksum(r[i, k, t, pi] for t in range(int(data.es[i]), int(data.ls[i]) + 1))
             == int(data.scenarios[pi][k][i])
             for pi in scenarios for k in resources for i in activities
+            if k in data.scenarios[pi]
         ),
         name="Deckung_Gesamtressourcenbedarf"
     )
@@ -203,7 +206,7 @@ def buildModel(
     model.addConstrs(
         (
             gp.quicksum(r[i, k, tau, pi] for k in resources for tau in time_points if tau >= t)
-            <= (gp.quicksum(int(data.scenarios[pi][k][i]) for k in resources)) * y[i, t, pi]
+            <= (gp.quicksum(int(data.scenarios[pi][k][i]) for k in resources if k in data.scenarios[pi])) * y[i, t, pi]
             for i in activities for t in time_points for pi in scenarios
         ),
         name="Big_M_Methode_2"

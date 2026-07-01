@@ -1,0 +1,123 @@
+% ============================================================
+% TikZ diagram: Per-Group Scenario Reduction
+% Shows 10 scenarios reduced to different subsets for two groups
+%
+% Include in Chapter 5 with:
+%   \input{figures/pergroup_scenario_reduction.tex}
+%
+% Required in preamble:
+%   \usepackage{tikz}
+%   \usetikzlibrary{arrows.meta, positioning, calc}
+% ============================================================
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+    >=Stealth,
+    lbl/.style={font=\scriptsize},
+    scen/.style={circle, minimum size=0.55cm,
+                 draw=black!30, inner sep=0pt,
+                 font=\scriptsize\bfseries},
+    kept/.style={scen, fill=#1, text=white, draw=#1!70,
+                 line width=1pt},
+    dropped/.style={scen, fill=black!6, text=black!35,
+                    draw=black!15},
+    groupbox/.style={rectangle, rounded corners=6pt,
+                     draw=#1!50, fill=#1!5,
+                     minimum width=3.2cm, minimum height=1.0cm,
+                     align=center, font=\small\bfseries,
+                     text=#1!80},
+    arrpam/.style={->, thick, draw=black!40,
+                   shorten >=3pt, shorten <=3pt},
+]
+
+% ================================================================
+%  Full scenario set (top, centred)
+% ================================================================
+\node[font=\small\bfseries, black!70] at (5, 5.2)
+    {Full scenario set $S = \{\pi_1, \ldots, \pi_{10}\}$};
+
+% 10 scenario circles in a row
+\foreach \s in {1,...,10} {
+    \node[scen, fill=black!8] (S\s) at (\s, 4.3) {\s};
+}
+
+% ================================================================
+%  Group G_1 (left) — resource k=1 dominant
+% ================================================================
+\node[groupbox=teal] (G1) at (3, 2.4)
+    {Group $G_1$\\[-2pt]
+     {\scriptsize resource $k{=}1$ dominant}};
+
+% Arrow from full set to G1
+\draw[arrpam] (3, 3.9) -- (G1.north)
+    node[midway, left=4pt, font=\scriptsize, black!50,
+         align=right] {PAM on\\$\mathbf{w}_{G_1}^{\pi}$};
+
+% Reduced set for G1: keep scenarios 2, 5, 8 (example)
+\node[font=\scriptsize, black!60, anchor=south]
+    at (3, 0.95) {$S_1^{\mathrm{red}} = \{2, 5, 8\}$};
+
+\foreach \s/\x in {1/0.5, 2/1.5, 3/2.5, 4/3.5, 5/4.5} {
+    \pgfmathtruncatemacro{\sid}{
+        ifthenelse(\s==1, 1,
+        ifthenelse(\s==2, 2,
+        ifthenelse(\s==3, 5,
+        ifthenelse(\s==4, 8, 10))))}
+    % manual placement
+}
+
+% Manual placement — cleaner
+\node[dropped]       (G1S1)  at (1.0, 0.5) {1};
+\node[kept=teal!70]  (G1S2)  at (1.8, 0.5) {2};
+\node[dropped]       (G1S3)  at (2.6, 0.5) {3};
+\node[dropped]       (G1S4)  at (3.4, 0.5) {4};
+\node[kept=teal!70]  (G1S5)  at (4.2, 0.5) {5};
+\node[dropped]       (G1S6)  at (1.4, -0.3) {6};
+\node[dropped]       (G1S7)  at (2.2, -0.3) {7};
+\node[kept=teal!70]  (G1S8)  at (3.0, -0.3) {8};
+\node[dropped]       (G1S9)  at (3.8, -0.3) {9};
+\node[dropped]       (G1S10) at (4.6, -0.3) {10};
+
+% ================================================================
+%  Group G_2 (right) — resource k=2 dominant
+% ================================================================
+\node[groupbox=violet] (G2) at (8, 2.4)
+    {Group $G_2$\\[-2pt]
+     {\scriptsize resource $k{=}2$ dominant}};
+
+% Arrow from full set to G2
+\draw[arrpam] (8, 3.9) -- (G2.north)
+    node[midway, right=4pt, font=\scriptsize, black!50,
+         align=left] {PAM on\\$\mathbf{w}_{G_2}^{\pi}$};
+
+% Reduced set for G2: keep scenarios 1, 4, 9 (different subset!)
+\node[font=\scriptsize, black!60, anchor=south]
+    at (8, 0.95) {$S_2^{\mathrm{red}} = \{1, 4, 9\}$};
+
+\node[kept=violet!70] (G2S1)  at (6.0, 0.5) {1};
+\node[dropped]         (G2S2)  at (6.8, 0.5) {2};
+\node[dropped]         (G2S3)  at (7.6, 0.5) {3};
+\node[kept=violet!70]  (G2S4)  at (8.4, 0.5) {4};
+\node[dropped]         (G2S5)  at (9.2, 0.5) {5};
+\node[dropped]         (G2S6)  at (6.4, -0.3) {6};
+\node[dropped]         (G2S7)  at (7.2, -0.3) {7};
+\node[dropped]         (G2S8)  at (8.0, -0.3) {8};
+\node[kept=violet!70]  (G2S9)  at (8.8, -0.3) {9};
+\node[dropped]         (G2S10) at (9.6, -0.3) {10};
+
+% ================================================================
+%  Annotation: key insight
+% ================================================================
+\node[font=\scriptsize, black!50, align=center,
+      text width=5cm] at (5.5, -1.1)
+    {Different groups select different representative scenarios\\
+     based on their own workload variation};
+
+\end{tikzpicture}
+\caption{Per-group scenario reduction. The same 10~scenarios are
+         reduced to $n_{\mathrm{keep}}{=}3$ for each group, but
+         PAM selects different medoids because the group-local
+         workload vectors $\mathbf{w}_{G_g}^{\pi}$ differ.
+         Coloured circles are retained; grey circles are dropped.}
+\label{fig:pergroup_scen}
+\end{figure}

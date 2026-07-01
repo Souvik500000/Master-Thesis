@@ -55,11 +55,15 @@ def _parse_n_renewable_resources_from_file(lines: List[str]) -> int:
 
 
 def _infer_k_from_path(path: str) -> Optional[int]:
-    # Supports folder names such as k_1, k_1_test, k_2_test, ...
+    # Supports: k_1, k_2, ... (underscore format)
     m = re.search(r"(?:^|[\\/])k_(\d+)(?=[_\\/]|$)", path)
-    if not m:
-        return None
-    return int(m.group(1))
+    if m:
+        return int(m.group(1))
+    # Supports: K=4, k=4, k = 4, K = 4 (equals format, with or without spaces)
+    m = re.search(r"[\\/]k\s*=\s*(\d+)[\\/]", path, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    return None
 
 
 def _parse_es_ls(lines: List[str], n_jobs: int) -> tuple[Dict[int, int], Dict[int, int]]:

@@ -1,0 +1,9 @@
+k;method;alpha;n_instances;feas_count;feas_pct;avg_gap_pct;avg_rt_sec
+1;baseline;10;50;50;100.0;15.73;63.88
+1;pergroup_kmd;10;50;49;98.0;-12.94;116.48
+2;baseline;15;50;49;98.0;22.66;63.94
+2;pergroup_kmd;15;50;49;98.0;-13.18;122.47
+3;baseline;15;50;41;82.0;18.63;94.53
+3;pergroup_kmd;15;50;46;92.0;-13.74;125.42
+4;baseline;15;50;46;92.0;16.24;92.2
+4;pergroup_kmd;15;50;48;96.0;-16.7;126.99

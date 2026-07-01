@@ -73,12 +73,20 @@ def minimal_duration_feasible(wk: int, lk: int, uk: int) -> int:
         return 0
     if uk <= 0:
         raise ValueError("uk must be > 0 when wk > 0")
+    if lk < 0:
+        raise ValueError("lk must be >= 0")
+    if lk > uk:
+        raise ValueError("lk must be <= uk")
 
-    D = math.ceil(wk / uk)
-    if lk > 0:
-        while D * lk > wk:
-            D += 1
-    return D
+    D_min = math.ceil(wk / uk)
+    if lk == 0:
+        return D_min
+
+    D_max = wk // lk
+    if D_min > D_max:
+        raise ValueError(f"Infeasible workload/resource bounds: wk={wk}, lk={lk}, uk={uk}")
+
+    return D_min
 
 
 def build_profile_for_resource(wk: int, lk: int, uk: int, D: int) -> List[int]:
@@ -106,18 +114,27 @@ def build_activity_profile(
     u_vec: List[int],
 ) -> Tuple[int, List[List[int]]]:
     K = len(w_vec)
-    D = 0
+    D_low = 0
+    D_high: Optional[int] = None
 
     for k in range(K):
-        D = max(D, minimal_duration_feasible(w_vec[k], l_vec[k], u_vec[k]))
+        wk = w_vec[k]
+        lk = l_vec[k]
+        uk = u_vec[k]
 
-    while True:
-        if all(
-            w_vec[k] == 0 or (D * l_vec[k] <= w_vec[k] <= D * u_vec[k])
-            for k in range(K)
-        ):
-            break
-        D += 1
+        D_k_min = minimal_duration_feasible(wk, lk, uk)
+        D_low = max(D_low, D_k_min)
+
+        if wk > 0 and lk > 0:
+            D_k_max = wk // lk
+            D_high = D_k_max if D_high is None else min(D_high, D_k_max)
+
+    if D_high is not None and D_low > D_high:
+        raise ValueError(
+            f"No common feasible duration D across resources: D_low={D_low}, D_high={D_high}"
+        )
+
+    D = D_low
 
     per_k = [build_profile_for_resource(w_vec[k], l_vec[k], u_vec[k], D) for k in range(K)]
     profile = [[per_k[k][dt] for k in range(K)] for dt in range(D)]
@@ -134,26 +151,45 @@ def select_workload_worst_case_for_activity(
     scenarios: Dict[int, Dict[int, List[int]]],
     n_R: int,
     scenario_ids: List[int],
+    uR: Optional[Dict[int, List[int]]] = None,
 ) -> List[int]:
+    """Pick the scenario that results in the longest duration for job j.
+
+    For each scenario, compute the implied duration per resource:
+        D_k = ceil(w_k / u_k)
+    and take the max across resources as the scenario's "hardness".
+    The scenario with the highest implied duration is selected.
+    Falls back to summing workloads if uR is not provided.
+    """
     best_s = None
     best_val = -10**18
 
     for s in scenario_ids:
         sk = scenarios.get(s, {})
-        for k in range(1, n_R + 1):
-            wl = sk.get(k)
-            if wl is None or job >= len(wl):
-                continue
-            if wl[job] > best_val:
-                best_val = wl[job]
-                best_s = s
+        w_vec = [
+            sk.get(k, [0])[job] if job < len(sk.get(k, [])) else 0
+            for k in range(1, n_R + 1)
+        ]
+        if uR is not None:
+            uk_list = uR.get(job, [])
+            val = 0
+            for k_idx, wk in enumerate(w_vec):
+                uk = uk_list[k_idx] if k_idx < len(uk_list) else 1
+                if uk > 0 and wk > 0:
+                    val = max(val, math.ceil(wk / uk))
+        else:
+            val = sum(w_vec)
+
+        if val > best_val:
+            best_val = val
+            best_s = s
 
     if best_s is None:
         return [0] * n_R
 
+    sk = scenarios.get(best_s, {})
     return [
-        scenarios.get(best_s, {}).get(k, [0])[job]
-        if job < len(scenarios.get(best_s, {}).get(k, [])) else 0
+        sk.get(k, [0])[job] if job < len(sk.get(k, [])) else 0
         for k in range(1, n_R + 1)
     ]
 
@@ -226,7 +262,7 @@ def ssgs_est_worst_case(
         latest = ls.get(j, 10**9)
 
         w_vec = select_workload_worst_case_for_activity(
-            j, data.scenarios, K, scenario_keep
+            j, data.scenarios, K, scenario_keep, uR=uR
         )
 
         try:

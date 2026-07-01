@@ -1,0 +1,128 @@
+% ============================================================
+% TikZ diagram: Group-Based Activity-Oriented R&F Pipeline
+% (Updated to match AO_FR_Gurobi_updated.py)
+%
+% Include in Chapter 5 with:
+%   \input{figures/grouprf_pipeline.tex}
+%
+% Required in preamble:
+%   \usepackage{tikz}
+%   \usetikzlibrary{shapes.geometric, arrows.meta,
+%                   positioning, fit, backgrounds}
+% ============================================================
+\begin{figure}[p]
+\centering
+\vspace*{\fill}
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+    node distance     = 0.7cm and 1.5cm,
+    box/.style        = {rectangle, rounded corners=6pt,
+                         draw=black!30, fill=gray!8,
+                         minimum width=8cm, minimum height=0.9cm,
+                         align=center, font=\small},
+    boxteal/.style    = {box, fill=teal!10,   draw=teal!50},
+    boxpurp/.style    = {box, fill=violet!8,  draw=violet!40},
+    boxblue/.style    = {box, fill=blue!8,    draw=blue!40},
+    boxamb/.style     = {rectangle, rounded corners=14pt,
+                         draw=orange!50, fill=orange!8,
+                         minimum width=8cm, minimum height=0.9cm,
+                         align=center, font=\small},
+    arr/.style        = {-{Stealth[length=5pt]}, thick,
+                         draw=black!50},
+    darr/.style       = {-{Stealth[length=5pt]}, draw=black!30,
+                         dashed, thin},
+    lbl/.style        = {font=\scriptsize, text=black!60},
+]
+%% ── Nodes ──────────────────────────────────────────────────────────
+\node[box] (inst)
+    {Project instance $\mathcal{N}=(V,E)$, $K$, $S$, $T$};
+\node[boxteal, below=of inst] (ssgs)
+    {\textbf{SSGS}: greedy initial schedule $S$};
+%% ── ML grouping block ──────────────────────────────────────────────
+\node[boxpurp, below=of ssgs] (feat)
+    {\textbf{Enriched feature extraction + redundancy pruning}\\[2pt]
+     \small \texttt{EnrichedFeatureExtractor}
+            $\;\longrightarrow\;\tilde{X}$
+            $\;\cdot\;$ drop features with $|r| \geq 0.95$};
+\node[boxpurp, below=of feat] (cluster)
+    {\textbf{Ward clustering per precedence level}\\[2pt]
+     \small Longest-path DP $\rightarrow$ levels
+            $\;\cdot\;$ Silhouette score $\rightarrow k^*$
+            $\;\cdot\;$ merge adjacent groups};
+\node[box, below=of cluster] (groups)
+    {Groups $\mathcal{G} = [G_1, G_2, \ldots, G_m]$};
+\node[lbl] (mllabel) at ([yshift=11pt]feat.north)
+    {ML grouping pipeline};
+\begin{scope}[on background layer]
+    \node[draw=black!20, dashed, rounded corners=8pt,
+          inner sep=12pt, fill=violet!3,
+          fit=(feat)(cluster)(groups)(mllabel)]
+          (mlbox) {};
+\end{scope}
+%% ── R&F loop block ─────────────────────────────────────────────────
+\node[boxblue, below=2.0cm of groups] (window)
+    {\textbf{Narrow slack-based window} for each $i \in G_g$\\[2pt]
+     \small $w_i = \max\!\left(2,
+             \left\lfloor 0.15\,(LS_i - ES_i)\right\rfloor\right)$,
+             \quad centred on $S'(i)$};
+\node[boxblue, below=of window] (subprob)
+    {\textbf{Solve group subproblem} (SAA-FSRCPSP)\\[2pt]
+     \small Binary: $G_g$
+            $\;\cdot\;$ Fixed: $G_1,\ldots,G_{g-1}$
+            $\;\cdot\;$ Relaxed: remainder};
+\node[boxamb, below=of subprob] (decision)
+    {Feasible $S'$ and improves makespan?};
+\node[boxteal, below=of decision] (fix)
+    {\textbf{Fix} $G_g$ at $S'$
+     $\;\cdot\;$ \textbf{Update} $S = S'$
+     $\;\cdot\;$ $\mathrm{no\_improve} = 0$};
+\node[lbl] (rflabel) at ([yshift=11pt]window.north)
+    {Group-based R\&F loop ($g = 1,\ldots,m$)};
+\begin{scope}[on background layer]
+    \node[draw=black!15, dashed, rounded corners=8pt,
+          inner sep=10pt, fill=blue!2,
+          fit=(window)(subprob)(decision)(fix)(rflabel)]
+          (rfbox) {};
+\end{scope}
+%% ── Arrows ─────────────────────────────────────────────────────────
+\draw[arr] (inst)     -- (ssgs);
+\draw[arr] (ssgs)     -- (feat);
+\draw[arr] (feat)     -- (cluster);
+\draw[arr] (cluster)  -- (groups);
+\draw[arr] (groups)   -- (window);
+\draw[arr] (window)   -- (subprob);
+\draw[arr] (subprob)  -- (decision);
+\draw[arr] (decision) -- node[lbl, right]{yes} (fix);
+%% ── No: full-slack retry / fix at S' fallback ──────────────────────
+\draw[darr]
+    (decision.west)
+    -- ++(-2.2, 0)
+    |- (window.west)
+    node[lbl, align=left, pos=0.25, left]
+        {No,\\full-slack\\retry or fix\\at $S'$};
+%% ── Loop next group ─────────────────────────────────────────────────
+\draw[darr]
+    (fix.east)
+    -- ++(2.2, 0)
+    |- (window.east)
+    node[lbl, pos=0.25, right]{next $g$};
+\end{tikzpicture}
+}
+\caption{Pipeline of the group-based activity-oriented Relax-and-Fix
+         (updated).
+         The ML grouping pipeline (dashed violet box) uses enriched
+         feature extraction with correlation-based redundancy pruning,
+         precedence-level assignment via longest-path DP, and Ward
+         hierarchical clustering with silhouette-based dynamic cut
+         to form semantically coherent groups.
+         The R\&F loop (dashed blue box) processes one group per
+         subproblem with a two-stage window strategy: a narrow
+         slack-based window ($15\%$ of slack) is tried first;
+         if no solution is found, the full $[ES_i, LS_i]$ window
+         is used as fallback.  If both solves fail, the group is
+         fixed at the current best schedule~$S'$.
+         Early stopping triggers when an integral solution is found
+         or after consecutive non-improving groups.}
+\label{fig:grouprf_pipeline}
+\vspace*{\fill}
+\end{figure}

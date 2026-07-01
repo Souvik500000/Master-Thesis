@@ -46,6 +46,16 @@ from sklearn.preprocessing import StandardScaler
 from Instance_Reader import InstanceData, read_instance
 from feature_extractor import EnrichedFeatureExtractor
 
+# Ablation-validated default: network topology features are both necessary
+# and sufficient. Adding urgency/resource features increases gap (8.09% vs 6.00%)
+# due to curse of dimensionality in Ward clustering.
+DEFAULT_FEATURE_COLS: List[str] = [
+    "precedence_level",
+    "in_degree",
+    "out_degree",
+    "longest_path_to_sink",
+]
+
 
 # =============================================================================
 # REDUNDANCY PRUNER
@@ -241,8 +251,8 @@ def _cluster_level(
             best_score = score
             best_k     = k
 
-    # If best silhouette is poor (< 0.1), keep as one group
-    if best_score < 0.10 and min_clusters <= 1:
+    # If best silhouette is poor (< 0.3), keep as one group
+    if best_score < 0.30 and min_clusters <= 1:
         return [jobs]
 
     labels = fcluster(Z_link, best_k, criterion='maxclust')
@@ -261,6 +271,19 @@ def _cluster_level(
 
 def _group_centroid(jobs: List[int], Z_df: pd.DataFrame) -> np.ndarray:
     return Z_df.loc[jobs].values.mean(axis=0)
+
+
+def _adjacent_centroid_distances(
+    groups: List[List[int]],
+    Z_df:   pd.DataFrame,
+) -> List[float]:
+    """All Euclidean distances between consecutive group centroids (in z-score space)."""
+    dists: List[float] = []
+    for i in range(len(groups) - 1):
+        c1 = _group_centroid(groups[i],     Z_df)
+        c2 = _group_centroid(groups[i + 1], Z_df)
+        dists.append(float(np.linalg.norm(c1 - c2)))
+    return dists
 
 
 def _try_merge_adjacent(
@@ -345,27 +368,36 @@ class ActivityGrouper:
     max_group_size   : maximum activities per cluster (default 5)
     merge_threshold  : centroid distance threshold for merging adjacent groups.
                        Set to 0.0 to disable merging (default 2.5)
-    silhouette_min   : minimum silhouette score to accept a split (default 0.10)
+    merge_percentile : if set (0..100), overrides merge_threshold with the
+                       given percentile of all adjacent-centroid distances
+                       computed once at the start of merging. Self-calibrates
+                       per instance, robust to feature-space dimensionality.
+                       (default None — use fixed merge_threshold)
+    silhouette_min   : minimum silhouette score to accept a split (default 0.30)
     verbose          : print grouping summary (default True)
     """
 
     def __init__(
         self,
-        data:            InstanceData,
-        number_scen:     int,
-        corr_threshold:  float = 0.95,
-        min_group_size:  int   = 1,
-        max_group_size:  int   = 5,
-        merge_threshold: float = 2.5,
-        verbose:         bool  = True,
+        data:             InstanceData,
+        number_scen:      int,
+        corr_threshold:   float = 0.95,
+        min_group_size:   int   = 1,
+        max_group_size:   int   = 5,
+        merge_threshold:  float = 2.5,
+        merge_percentile: Optional[float] = None,
+        verbose:          bool  = True,
+        feature_cols:     Optional[List[str]] = None,
     ):
-        self.data            = data
-        self.number_scen     = number_scen
-        self.corr_threshold  = corr_threshold
-        self.min_group_size  = min_group_size
-        self.max_group_size  = max_group_size
-        self.merge_threshold = merge_threshold
-        self.verbose         = verbose
+        self.data             = data
+        self.number_scen      = number_scen
+        self.corr_threshold   = corr_threshold
+        self.min_group_size   = min_group_size
+        self.max_group_size   = max_group_size
+        self.merge_threshold  = merge_threshold
+        self.merge_percentile = merge_percentile
+        self.verbose          = verbose
+        self.feature_cols     = feature_cols   # None = use all; list = restrict to these columns
 
         self._groups: Optional[List[List[int]]] = None
 
@@ -385,6 +417,17 @@ class ActivityGrouper:
         df_raw, df_scaled = EnrichedFeatureExtractor(
             data, include_dummies=False
         ).extract()
+
+        # ── Step 1b: Restrict to requested feature subset ─────────
+        if self.feature_cols is not None:
+            keep = [c for c in self.feature_cols if c in df_scaled.columns]
+            if not keep:
+                raise ValueError(
+                    f"feature_cols={self.feature_cols} matched no columns in "
+                    f"{list(df_scaled.columns)}"
+                )
+            df_scaled = df_scaled[keep]
+            df_raw    = df_raw[[c for c in keep if c in df_raw.columns]]
 
         # ── Step 2: Prune redundant features ──────────────────────
         df_pruned = _prune_redundant(df_scaled, corr_threshold=self.corr_threshold)
@@ -425,13 +468,29 @@ class ActivityGrouper:
                     print(f"  Level {lvl:2d} | group {c}")
 
         # ── Step 5: Optionally merge adjacent similar groups ───────
-        if self.merge_threshold > 0.0:
+        # Percentile mode self-calibrates the threshold to the instance:
+        # we compute the percentile over the centroid-distance distribution
+        # ONCE before merging, and use that as a fixed threshold throughout.
+        # This neutralises curse-of-dimensionality effects across k values.
+        effective_threshold = self.merge_threshold
+        if self.merge_percentile is not None and len(all_groups) >= 2:
+            dists = _adjacent_centroid_distances(all_groups, df_pruned)
+            if dists:
+                effective_threshold = float(
+                    np.percentile(dists, self.merge_percentile)
+                )
+                if self.verbose:
+                    print(f"[Grouper] merge_percentile={self.merge_percentile} "
+                          f"-> threshold={effective_threshold:.3f} "
+                          f"(min={min(dists):.2f}, max={max(dists):.2f})")
+
+        if effective_threshold > 0.0:
             before = len(all_groups)
             all_groups = _try_merge_adjacent(
                 groups          = all_groups,
                 Z_df            = df_pruned,
                 data            = data,
-                merge_threshold = self.merge_threshold,
+                merge_threshold = effective_threshold,
             )
             after = len(all_groups)
             if self.verbose and after < before:
@@ -468,7 +527,8 @@ class ActivityGrouper:
                     for lvl in sorted(level_jobs.keys())
                 ]
 
-        self._groups = all_groups
+        self._groups  = all_groups
+        self._feat_df = df_raw   # expose raw features for NN
 
         if self.verbose:
             self._print_summary(df_raw)

@@ -1,0 +1,7 @@
+method;n_scen_used;n_instances;feas_count;feas_pct;avg_gap_pct;avg_rt_sec
+baseline;10;10;10;100.0;37.73;78.98
+global_naive;3;10;10;100.0;33.27;43.49
+global_random;3;10;10;100.0;32.85;43.18
+global_kmedoids;3;10;10;100.0;31.83;43.5
+global_backward;3;10;10;100.0;32.01;43.0
+pergroup_kmed;10;10;10;100.0;10.3;103.36

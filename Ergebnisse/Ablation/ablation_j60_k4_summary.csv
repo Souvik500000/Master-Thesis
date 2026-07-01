@@ -1,0 +1,8 @@
+config;n_instances;feas_count;feas_pct;avg_gap_pct;avg_rt_sec;avg_n_groups
+all;10;10;100.0;8.09;56.78;1.0
+no_network;10;10;100.0;8.09;59.33;1.0
+no_urgency;10;10;100.0;8.09;55.16;1.0
+no_resource;10;10;100.0;8.09;56.2;1.0
+network_only;10;10;100.0;6.0;60.16;1.0
+urgency_only;10;10;100.0;8.09;60.15;1.0
+resource_only;10;10;100.0;8.09;47.16;1.0

@@ -1,0 +1,55 @@
+% ============================================================
+% TikZ diagram: Three-Phase Scalability Pipeline
+% Reduce → Solve → Verify (compact horizontal chain)
+%
+% Include in Chapter 5 with:
+%   \input{figures/scalability_pipeline.tex}
+%
+% Required in preamble:
+%   \usepackage{tikz}
+%   \usetikzlibrary{arrows.meta, positioning}
+% ============================================================
+\begin{figure}[ht]
+\centering
+\resizebox{0.92\textwidth}{!}{%
+\begin{tikzpicture}[
+    node distance=0.55cm,
+    box/.style={rectangle, draw=black!40, fill=gray!8,
+                minimum height=0.85cm, minimum width=2cm,
+                align=center, font=\footnotesize,
+                inner sep=4pt},
+    arr/.style={-{Stealth[length=4pt]}, draw=black!55},
+    lbl/.style={font=\scriptsize, text=black!50},
+]
+
+\node[box] (orig)
+    {Instance\\$T,\;|S|,\;n$};
+
+\node[box, draw=blue!50, fill=blue!6,
+      right=of orig] (reduce)
+    {Reduce\\{\scriptsize $T\!\to\!\lceil T/\alpha\rceil$,\;
+      $|S|\!\to\!n_{\mathrm{keep}}$}};
+
+\node[box, draw=teal!50, fill=teal!6,
+      right=of reduce] (solve)
+    {Solve\\{\scriptsize group R\&F}};
+
+\node[box, draw=orange!50, fill=orange!6,
+      right=of solve] (verify)
+    {Verify\\{\scriptsize full LP, all $|S|$}};
+
+\node[box, right=of verify] (out)
+    {$S^*$ +\\certificate};
+
+\draw[arr] (orig)   -- (reduce);
+\draw[arr] (reduce) -- (solve);
+\draw[arr] (solve)  -- (verify);
+\draw[arr] (verify) -- (out);
+
+\end{tikzpicture}
+}% end resizebox
+\caption{Three-phase scalability pipeline: reduce the instance
+         dimensions, solve via group-based R\&F on the smaller
+         model, verify feasibility on the full instance.}
+\label{fig:scalability_pipeline}
+\end{figure}

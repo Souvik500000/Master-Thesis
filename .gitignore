@@ -4,3 +4,66 @@ __pycache__/
 .DS_Store
 *.log
 Results/
+
+# Claude session files
+.claude/
+
+# Word documents
+*.docx
+
+# Stray instance folder
+j305_1/
+
+# Old/redundant experiment scripts
+exp3_j60.py
+exp3_j60_alpha10.py
+exp3_j60_alpha7.py
+exp3_j60_time_agg.py
+exp4_j30_k4_time_agg.py
+exp5_j60_time_agg.py
+exp6_j120_alpha_val.py
+exp6_j120_v2.py
+exp7_j30_time_agg.py
+exp_ablation_j10.py
+exp_ablation_j30.py
+exp_ablation_j60_k4.py
+exp_ablation_merge_threshold.py
+exp_alpha_sensitivity.py
+exp_feat_compare_j30.py
+exp_feature_selection.py
+exp_forward_sel_j60.py
+exp_fwdsel_clean.py
+exp_gs_sensitivity.py
+exp_new_features_j60.py
+exp_nn_ablation_j30_k2.py
+exp_scen_red_j120_allk.py
+exp_scen_red_j120_k4.py
+exp_scen_reduction.py
+
+# Test/sanity scripts
+test_*.py
+sanity_j60_k1.py
+
+# Neural network experiments
+collect_nn_data.py
+train_urgency_model.py
+urgency_nn.py
+
+# Contaminated forward selection results
+Ergebnisse/FwdSel/
+
+# Old staged-but-deleted result files
+Ergebnisse/Baseline/
+Ergebnisse/Grouped/
+Ergebnisse/j102_2_grouped.csv
+Ergebnisse/j10_k4_grouped_W_rand.csv
+Ergebnisse/j10_k4_grouped_early_stopping.csv
+Ergebnisse/j3023_3_grouped.csv
+
+# Misc
+comparison.py
+test_folder_creator.py
+Main.py
+main_updated.py
+Data/
+
