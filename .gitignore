@@ -60,6 +60,10 @@ Ergebnisse/j10_k4_grouped_W_rand.csv
 Ergebnisse/j10_k4_grouped_early_stopping.csv
 Ergebnisse/j3023_3_grouped.csv
 
+# Thesis LaTeX source (kept local only)
+*.tex
+*.bib
+
 # Misc
 comparison.py
 test_folder_creator.py
